@@ -1,11 +1,12 @@
-# Multi-Tenant B2B Customer Support AI — Relational Database Schema
+# Multi-Tenant B2B Customer Support AI — Relational Database Schema (Dynamic RBAC)
 
-This document contains the official Entity-Relationship diagram showing the 9 core tables, all fields (including Kaggle support mappings), and explicit foreign key relationships with cardinality.
+This document contains the official Entity-Relationship diagram showing the 10 core tables, dynamic RBAC via the `ROLES` table, all fields (including Kaggle support mappings), and explicit foreign key relationships with cardinality.
 
 ## Interactive Mermaid Entity-Relationship Diagram
 
 ```mermaid
 erDiagram
+    ORGANIZATIONS ||--o{ ROLES : "defines roles"
     ORGANIZATIONS ||--o{ USERS : "has staff"
     ORGANIZATIONS ||--o{ CUSTOMERS : "has customers"
     ORGANIZATIONS ||--o{ TICKETS : "owns"
@@ -14,6 +15,8 @@ erDiagram
     ORGANIZATIONS ||--o{ INVOICES : "issues"
     ORGANIZATIONS ||--o{ AUDIT_LOGS : "records"
     ORGANIZATIONS ||--o{ KNOWLEDGE_BASE_ARTICLES : "owns KB"
+
+    ROLES ||--o{ USERS : "assigned to"
 
     CUSTOMERS ||--o{ TICKETS : "submits"
     CUSTOMERS ||--o{ INVOICES : "billed to"
@@ -33,12 +36,23 @@ erDiagram
         timestamptz created_at
     }
 
+    ROLES {
+        uuid id PK
+        uuid org_id FK "organizations.id"
+        string name "super-admin, Org_Admin, Agent..."
+        text description
+        boolean is_system "protected default role"
+        jsonb permissions "['*'] or action list"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     USERS {
         uuid id PK
         uuid org_id FK "organizations.id"
+        uuid role_id FK "roles.id (dynamic role)"
         string email UK
         string hashed_password
-        string role "Org_Admin | Support_Agent | End_Customer"
         string full_name
         timestamptz created_at
         timestamptz updated_at
@@ -114,8 +128,8 @@ erDiagram
         uuid id PK
         uuid org_id FK "organizations.id"
         uuid actor_id FK "users.id"
-        string action "ticket.create | invoice.refund | note.add"
-        string resource_type "tickets | invoices | ticket_notes"
+        string action "ticket.create | role.create | role.edit"
+        string resource_type "tickets | roles | invoices"
         uuid resource_id
         jsonb details "payload / changes"
         timestamptz created_at
@@ -136,4 +150,4 @@ erDiagram
 
 ## Vector Graphic Export
 
-The visual vector graphic with direct entity-connector lines, cardinality indicators (`1:N`), and color-coded relationships is available in [er_diagram.svg](file:///home/tarun/Desktop/agentic-backend/er_diagram.svg).
+The visual vector graphic with direct entity-connector lines, cardinality indicators (`1:N`), and the new `ROLES` entity is available in [docs/er_diagram.svg](file:///home/tarun/Desktop/agentic-backend/docs/er_diagram.svg).
