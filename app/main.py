@@ -8,13 +8,15 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
 from app.core.database import engine
+from app.api.v1.auth import router as auth_router
 from app.api.v1.health import router as health_router
 
 settings = get_settings()
@@ -55,10 +57,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @application.exception_handler(HTTPException)
+    @application.exception_handler(StarletteHTTPException)
     async def http_exception_handler(
         _request: Request,
-        exc: HTTPException,
+        exc: StarletteHTTPException,
     ) -> JSONResponse:
         code = STATUS_TO_ERROR_CODE.get(exc.status_code, "INTERNAL_ERROR")
         return JSONResponse(
@@ -89,6 +91,7 @@ def create_app() -> FastAPI:
             },
         )
     application.include_router(health_router)
+    application.include_router(auth_router)
     return application
 
 
