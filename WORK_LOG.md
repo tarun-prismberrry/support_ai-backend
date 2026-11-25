@@ -4,7 +4,7 @@
 
 ## 📌 Latest Status (2026-11-25)
 * **Active Git Branch:** `main` (tracked with `origin/main`).
-* **Latest Git Commit:** `684e506` (`chore: untrack LEARNING_GUIDE.md and add to .gitignore`).
+* **Latest Git Commit:** `200ad4d` (`feat(auth): implement /auth/login, /auth/me, and global contract error handling`).
 * **Completed Milestones:**
   1. Relational schema design & contracts locked (v3.0).
   2. Core async database engine, config, and security modules (`app/core/`).
@@ -13,47 +13,47 @@
   5. Multi-service schema isolation agreement with LangGraph Orchestrator (`public` vs `orchestrator`).
   6. Docker infrastructure setup (`docker-compose.yml`, `docker/init-db.sh` with `pgvector/pgvector:pg16` & `redis:7-alpine`).
   7. Alembic async migrations initialized, generated, and applied (`11 tables live in PostgreSQL`).
-* **Current Immediate Task:** Commit migrations & Docker infrastructure, then implement the Synthetic Data Seeder (`app/scripts/seed.py`).
+  8. Health probes & auth routes (`/health/live`, `/health/ready`, `/auth/login`, `/auth/me`).
+  9. Tickets & internal notes endpoints (`/tickets`, `/tickets/{id}/messages`, `/tickets/{id}/notes`, `/tickets/{id}/status`).
+* **Current Immediate Task:** Verify and commit ticket routes, then implement Billing & HITL Refund routes (`app/schemas/billing.py`, `app/api/v1/invoices.py`).
 
 ---
 
 ## 📅 Session Log: 2026-11-25
 
-### Objective: Docker Infrastructure & Initial Database Migration
-* **Files Created:**
-  * `docker-compose.yml`: Spins up `pgvector/pgvector:pg16` on `5432` and `redis:7-alpine` on `6379`.
-  * `docker/init-db.sh`: Automates extension creation (`uuid-ossp`, `vector`), initializes the `orchestrator` schema, and creates the restricted `orchestrator_user` role.
-  * `alembic.ini` & `migrations/env.py`: Configured async migration runner dynamically linked to `app.core.config.get_settings().DATABASE_URL`.
-  * `migrations/versions/a60f22bfa6a3_initial_schema_10_tables.py`: Initial DDL migration script covering all 10 business domain tables.
-* **Bugs Encountered & Resolved:**
-  1. *Alembic autogenerate quirk with `alembic_version`:* When autogenerate ran, it detected existing `alembic_version` and generated `op.drop_table('alembic_version')` inside `upgrade()`, which caused the migration to drop its own tracking table before recording the revision. Removed the redundant drop/create commands from the revision file.
-  2. *Missing `pgvector` import in revision script:* Alembic referenced `pgvector.sqlalchemy.vector.VECTOR` on column `embedding` without importing `pgvector.sqlalchemy.vector` at the top of the file. Added the import to the migration header.
-* **Tests & Verification:**
-  * Ran `docker compose up -d` $\rightarrow$ both containers healthy.
-  * Ran `.venv/bin/alembic upgrade head` $\rightarrow$ applied `a60f22bfa6a3_initial_schema_10_tables` cleanly.
-  * Inspected PostgreSQL `support_ai_db` tables:
-    Verified all 11 tables live: `alembic_version`, `audit_logs`, `customers`, `invoices`, `knowledge_base_articles`, `organizations`, `roles`, `ticket_messages`, `ticket_notes`, `tickets`, `users`.
-  * Verified extensions: `uuid-ossp`, `vector`.
-  * Verified schemas: `public`, `orchestrator`.
+### Objective: Support Tickets & Internal Notes Implementation
+* **Files Created & Modified:**
+  * `app/schemas/ticket.py`: Pydantic schemas for ticket creation, status update, response, dialogue messages, and notes.
+  * `app/api/v1/tickets.py`: Full CRUD for tickets, public messages, and lifecycle state transitions.
+  * `app/api/v1/notes.py`: Internal staff whispers route guarded strictly by `ticket.note:read` and `ticket.note:write`.
+  * `app/main.py`: Registered tickets and notes routers into application factory.
+* **Security & Multi-Tenant Validations:**
+  * Auto-binding customer ID for customers on `POST /tickets`.
+  * Status transition state machine validation (e.g. invalid jumps rejected with `400 BAD REQUEST`).
+  * Customer status update restriction (customers can only move `resolved` $\rightarrow$ `closed`).
+  * Strict customer denial on `/tickets/{id}/notes` (`ticket.note:read` requirement).
+  * Global error envelope compliance (`{"error": {"code": "...", "message": "...", "details": ...}}`).
 
 ---
 
 ## 🎯 Exact Next Steps
 
-1. **Commit Migrations and Docker Infrastructure:**
+1. **Commit Tickets & Notes Implementation:**
    ```bash
-   git add docker-compose.yml docker/ alembic.ini migrations/ WORK_LOG.md PROJECT_CONTEXT.md
-   git commit -m "feat(db): launch Docker infrastructure and apply initial 10-table Alembic migration"
+   git add app/schemas/ticket.py app/api/v1/tickets.py app/api/v1/notes.py app/main.py WORK_LOG.md
+   git commit -m "feat(tickets): implement tickets, public messages, and internal notes routes with RBAC guards"
    ```
-2. **Implement Synthetic Data Seeder (`app/scripts/seed.py`):**
-   * Populate deterministic test identities:
-     - Alice (Org A Admin)
-     - Bob (Org A Support Agent)
-     - Charlie (Org A Customer)
-     - Dave (Org B Admin - cross-tenant testing)
-   * Seed 1,000+ support tickets, dialogue messages, private notes, and invoices.
-   * Seed mock knowledge base vectors for RAG search.
-3. **Implement FastAPI App Factory & Routes (`app/main.py`, `app/api/`):**
-   * Liveness/readiness probes (`GET /health/live`, `GET /health/ready`).
-   * Authentication (`POST /auth/login`, `GET /auth/me`).
-   * Tickets, Notes, and Invoices CRUD.
+2. **Implement Billing & HITL Refund Routes (`app/schemas/billing.py`, `app/api/v1/invoices.py`):**
+   * `GET /invoices`: Org-scoped invoice search and listing.
+   * `GET /invoices/{id}`: Detailed invoice query.
+   * `POST /invoices/{id}/approve-refund`: Admin pre-approval producing signed HMAC token (15-min expiry).
+   * `POST /invoices/{id}/refund`: Execution endpoint enforcing idempotency key, balance check, threshold validation, and audit logging.
+3. **Implement Synthetic Data Seeder (`app/scripts/seed.py`):**
+   * Deterministic test users (Alice, Bob, Charlie, Dave).
+   * 1,000+ support tickets, dialogue messages, notes, and invoices.
+   * Vector embeddings for RAG articles.
+4. **Pytest Integration Test Suite (`tests/`):**
+   * Test cross-tenant negative matrix (CONTRACTS.md Section 8).
+   * Test staff privilege escalation denial.
+   * Test customer reading notes (`403 FORBIDDEN`).
+   * Test unapproved refund > $100 (`403 FORBIDDEN`).

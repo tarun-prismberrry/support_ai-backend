@@ -18,6 +18,8 @@ from app.core.config import get_settings
 from app.core.database import engine
 from app.api.v1.auth import router as auth_router
 from app.api.v1.health import router as health_router
+from app.api.v1.notes import router as notes_router
+from app.api.v1.tickets import router as tickets_router
 
 settings = get_settings()
 
@@ -92,6 +94,8 @@ def create_app() -> FastAPI:
         )
     application.include_router(health_router)
     application.include_router(auth_router)
+    application.include_router(tickets_router)
+    application.include_router(notes_router)
     return application
 
 
