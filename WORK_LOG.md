@@ -4,96 +4,56 @@
 
 ## 📌 Latest Status (2026-11-25)
 * **Active Git Branch:** `main` (tracked with `origin/main`).
-* **Latest Git Commit:** `f3400ba` (`docs: added service architecture and setup documentation`).
+* **Latest Git Commit:** `684e506` (`chore: untrack LEARNING_GUIDE.md and add to .gitignore`).
 * **Completed Milestones:**
   1. Relational schema design & contracts locked (v3.0).
   2. Core async database engine, config, and security modules (`app/core/`).
   3. Complete 10-table SQLAlchemy 2.0 models package (`app/models/`).
   4. FastAPI authentication dependency pipeline & RBAC factories (`app/core/dependencies.py`).
   5. Multi-service schema isolation agreement with LangGraph Orchestrator (`public` vs `orchestrator`).
-* **Current Immediate Task:** Commit `app/core/dependencies.py`, then initialize Alembic async migrations.
+  6. Docker infrastructure setup (`docker-compose.yml`, `docker/init-db.sh` with `pgvector/pgvector:pg16` & `redis:7-alpine`).
+  7. Alembic async migrations initialized, generated, and applied (`11 tables live in PostgreSQL`).
+* **Current Immediate Task:** Commit migrations & Docker infrastructure, then implement the Synthetic Data Seeder (`app/scripts/seed.py`).
 
 ---
 
-## 📅 Session Log: 2026-11-24 & 2026-11-25
+## 📅 Session Log: 2026-11-25
 
-### Objective 1: Implement Financial, Audit, and Vector Models
+### Objective: Docker Infrastructure & Initial Database Migration
 * **Files Created:**
-  * `app/models/billing.py` (`Invoice` with `Numeric(10, 2)` and refund tracking).
-  * `app/models/audit.py` (`AuditLog` WORM immutable event stream without `updated_at`).
-  * `app/models/rag.py` (`KnowledgeBaseArticle` with `Vector(1536)` and `idx_kb_lookup`).
-  * `app/models/__init__.py` (Unified models exporter with `__all__`).
+  * `docker-compose.yml`: Spins up `pgvector/pgvector:pg16` on `5432` and `redis:7-alpine` on `6379`.
+  * `docker/init-db.sh`: Automates extension creation (`uuid-ossp`, `vector`), initializes the `orchestrator` schema, and creates the restricted `orchestrator_user` role.
+  * `alembic.ini` & `migrations/env.py`: Configured async migration runner dynamically linked to `app.core.config.get_settings().DATABASE_URL`.
+  * `migrations/versions/a60f22bfa6a3_initial_schema_10_tables.py`: Initial DDL migration script covering all 10 business domain tables.
+* **Bugs Encountered & Resolved:**
+  1. *Alembic autogenerate quirk with `alembic_version`:* When autogenerate ran, it detected existing `alembic_version` and generated `op.drop_table('alembic_version')` inside `upgrade()`, which caused the migration to drop its own tracking table before recording the revision. Removed the redundant drop/create commands from the revision file.
+  2. *Missing `pgvector` import in revision script:* Alembic referenced `pgvector.sqlalchemy.vector.VECTOR` on column `embedding` without importing `pgvector.sqlalchemy.vector` at the top of the file. Added the import to the migration header.
 * **Tests & Verification:**
-  * Imported all 10 models and executed `configure_mappers()`.
-  * Verified all 10 tables registered in `Base.metadata.tables`:
-    `audit_logs`, `customers`, `invoices`, `knowledge_base_articles`, `organizations`, `roles`, `ticket_messages`, `ticket_notes`, `tickets`, `users`.
-* **Git Commit:** `a9a23ad feat(models): define complete 10-table SQLAlchemy 2.0 relational schema`.
-
----
-
-### Objective 2: Service Architecture Documentation
-* **Files Created:**
-  * `README.md` (Production-grade overview, quickstart, directory layout, multi-tenant security matrix).
-* **Git Commit:** `f3400ba docs: added service architecture and setup documentation`.
-
----
-
-### Objective 3: FastAPI Authentication & Dynamic RBAC Pipeline
-* **Files Created:**
-  * `app/core/dependencies.py`
-* **Implementation Details:**
-  * `UserContext(BaseModel)`: Pure Pydantic data container holding resolved identity snapshot (`id`, `org_id`, `role`, `permissions`, `authorized_kb_tiers`). Prevents leaking `hashed_password` or causing `DetachedInstanceError`.
-  * `get_current_user`: Defense-in-depth security gate evaluating 7 sequential checks:
-    1. HTTP Bearer presence.
-    2. JWT cryptographic decode (pinned `HS256`, expiration, audience).
-    3. User ID claim extraction.
-    4. UUID format validation.
-    5. Database user lookup (with `selectinload(User.role)` and `selectinload(User.customer)`).
-    6. `is_active == True` instant revocation check.
-    7. Role assignment verification.
-    8. Sets PostgreSQL RLS tenant context via `set_db_tenant_context()`.
-  * `require_permission(permission: str)`: Higher-order dependency factory returning a customized closure function that enforces permissions before route handler execution.
-  * `resolve_kb_tiers(permissions)`: Maps user permissions to RAG access tiers (`public`, `internal_staff`, `admin_only`), properly expanding admin wildcard `*`.
-* **Tests & Verification:**
-  * Tested wildcard `*` resolving to all 3 tiers.
-  * Tested agent permissions resolving to `['public', 'internal_staff']`.
-  * Tested customer permissions resolving to `['public']`.
-  * Tested simulated request authorization against `require_permission('refund.issue')`.
-  * All tests passed with 0 errors.
-
----
-
-### Objective 4: Cross-Service Database Alignment (LangGraph Integration)
-* **Discussion with Shashank Pathania (Orchestrator Engineer):**
-  * Shashank requested clarification on checkpoint and state persistence.
-  * **Agreed Decision:** Single PostgreSQL 16 container (`support_ai_db`).
-  * Backend owns `public` schema for 10 core tables.
-  * Orchestrator owns `orchestrator` schema for LangGraph `checkpoints`.
-  * Backend's Alembic explicitly sets `version_table_schema = "public"` to guarantee isolation.
-
----
-
-## 🐛 Resolved Bugs & Historical Issues
-
-1. **`fatal: not a git repository`:** Fixed by running `git init` and creating `main` branch.
-2. **`ModuleNotFoundError: No module named 'greenlet'`:** Async SQLAlchemy requires greenlet. Fixed by adding `sqlalchemy[asyncio]>=2.0.28` and installing via `uv pip install -e ".[dev]"`.
-3. **Execution Environment:** Commands run outside `.venv` failed. Standardized execution via `.venv/bin/python`.
+  * Ran `docker compose up -d` $\rightarrow$ both containers healthy.
+  * Ran `.venv/bin/alembic upgrade head` $\rightarrow$ applied `a60f22bfa6a3_initial_schema_10_tables` cleanly.
+  * Inspected PostgreSQL `support_ai_db` tables:
+    Verified all 11 tables live: `alembic_version`, `audit_logs`, `customers`, `invoices`, `knowledge_base_articles`, `organizations`, `roles`, `ticket_messages`, `ticket_notes`, `tickets`, `users`.
+  * Verified extensions: `uuid-ossp`, `vector`.
+  * Verified schemas: `public`, `orchestrator`.
 
 ---
 
 ## 🎯 Exact Next Steps
 
-1. **Commit Dependencies Module:**
+1. **Commit Migrations and Docker Infrastructure:**
    ```bash
-   git add app/core/dependencies.py README.md
-   git commit -m "feat(auth): implement FastAPI authentication dependencies and RBAC permission guards"
+   git add docker-compose.yml docker/ alembic.ini migrations/ WORK_LOG.md PROJECT_CONTEXT.md
+   git commit -m "feat(db): launch Docker infrastructure and apply initial 10-table Alembic migration"
    ```
-2. **Initialize Alembic Migrations:**
-   * Run `.venv/bin/alembic init -t async migrations`.
-   * Configure `migrations/env.py` to import `Base.metadata`, use sync connection URL, and set `version_table_schema = "public"`.
-   * Generate initial revision: `.venv/bin/alembic revision --autogenerate -m "initial_schema"`.
-3. **Build Application Entrypoint (`app/main.py`):**
-   * Setup FastAPI factory with lifespan management and global standard error envelope formatting.
-4. **Implement Health & Auth API Endpoints:**
-   * `/health/live`, `/health/ready` (checking DB pool & Redis).
-   * `/auth/login`, `/auth/me` (returning `UserContext`).
+2. **Implement Synthetic Data Seeder (`app/scripts/seed.py`):**
+   * Populate deterministic test identities:
+     - Alice (Org A Admin)
+     - Bob (Org A Support Agent)
+     - Charlie (Org A Customer)
+     - Dave (Org B Admin - cross-tenant testing)
+   * Seed 1,000+ support tickets, dialogue messages, private notes, and invoices.
+   * Seed mock knowledge base vectors for RAG search.
+3. **Implement FastAPI App Factory & Routes (`app/main.py`, `app/api/`):**
+   * Liveness/readiness probes (`GET /health/live`, `GET /health/ready`).
+   * Authentication (`POST /auth/login`, `GET /auth/me`).
+   * Tickets, Notes, and Invoices CRUD.
