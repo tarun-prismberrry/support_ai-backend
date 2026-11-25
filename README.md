@@ -15,7 +15,7 @@ Production-grade, multi-tenant B2B Customer Support AI backend service. Provides
 * **Multi-Tenant Data Isolation:** Shared Database + Shared Schema pattern backed by native PostgreSQL **Row-Level Security (RLS)** (`SET LOCAL app.current_org_id = ...`) to guarantee zero cross-tenant data leaks.
 * **Dynamic RBAC & Lean JWTs:** Stateless tokens carrying only identity claims (`sub`, `user_id`). Permissions are stored in dynamic JSONB roles and cached in Redis with instant zero-lag revocation.
 * **HITL Financial Safety:** Defense-in-depth refund execution requiring signed HMAC approval tokens for amounts $> \$100.00$.
-* **Integrated Vector Storage:** Native 1536-dimensional embeddings stored via `pgvector` for semantic knowledge base retrieval.
+* **Integrated Vector Storage:** Native 384-dimensional embeddings stored via `pgvector` for semantic knowledge base retrieval.
 * **Asynchronous High Concurrency:** Built with modern Python `asyncio`, `asyncpg`, and SQLAlchemy 2.0 type-annotated Declarative Mappings.
 
 ---
