@@ -27,7 +27,7 @@ async def test_customer_lists_only_own_tickets(client: AsyncClient, charlie_head
 @pytest.mark.asyncio
 async def test_support_agent_lists_all_org_tickets(client: AsyncClient, bob_headers: dict[str, str]) -> None:
     """Support agents must be able to view tickets across the entire organization."""
-    response = await client.get("/tickets", headers=bob_headers)
+    response = await client.get("/tickets", params={"limit": 50}, headers=bob_headers)
     assert response.status_code == 200
     tickets = response.json()
     assert len(tickets) > 1

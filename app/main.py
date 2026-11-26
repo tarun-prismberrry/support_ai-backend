@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -102,6 +102,15 @@ def create_app() -> FastAPI:
                 }
             },
         )
+    # Mount routers at both root and /api/v1 prefix for backwards compatibility and API versioning
+    api_v1 = APIRouter(prefix="/api/v1")
+    api_v1.include_router(health_router)
+    api_v1.include_router(auth_router)
+    api_v1.include_router(tickets_router)
+    api_v1.include_router(notes_router)
+    api_v1.include_router(invoices_router)
+    application.include_router(api_v1)
+
     application.include_router(health_router)
     application.include_router(auth_router)
     application.include_router(tickets_router)
