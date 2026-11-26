@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
 from app.core.database import engine
+from app.core.redis import close_redis_pool
 from app.api.v1.auth import router as auth_router
 from app.api.v1.health import router as health_router
 from app.api.v1.invoices import router as invoices_router
@@ -40,6 +41,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage startup and graceful shutdown of shared infrastructure pools."""
     yield
     await engine.dispose()
+    await close_redis_pool()
 
 
 def create_app() -> FastAPI:

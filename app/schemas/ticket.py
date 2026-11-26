@@ -62,6 +62,7 @@ class TicketCreate(BaseModel):
     description: str = Field(..., min_length=5, max_length=10000)
     category: str = Field(..., min_length=2, max_length=64, description="e.g. Billing, Technical, Product")
     priority: str = Field(default="medium", description="low | medium | high | urgent")
+    channel: str = Field(default="web", description="chat | email | web | phone")
     product_name: Optional[str] = Field(default=None, max_length=255)
     customer_id: Optional[uuid.UUID] = Field(
         default=None,
@@ -96,13 +97,3 @@ class TicketResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
-
-
-class TicketCreate(BaseModel):
-    title: str = Field(..., min_length=3, max_length=255)
-    description: str = Field(..., min_length=5, max_length=10000)
-    category: str = Field(..., min_length=2, max_length=64)
-    priority: str = Field(default="medium", description="low | medium | high | urgent")
-    channel: str = Field(default="web", description="chat | email | web | phone")  # <-- Add this!
-    product_name: Optional[str] = Field(default=None, max_length=255)
-    customer_id: Optional[uuid.UUID] = Field(default=None)

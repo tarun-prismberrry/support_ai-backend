@@ -14,7 +14,6 @@ import uuid
 from decimal import Decimal
 from typing import Optional
 
-import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.dependencies import UserContext, get_current_user, require_permission
+from app.core.redis import get_redis_client
 from app.models.audit import AuditLog
 from app.models.billing import Invoice
 from app.models.user import Customer
@@ -208,9 +208,8 @@ async def issue_refund(
     # 1. Idempotency Check: Fast Redis check + Durable PostgreSQL check
     redis_key = f"idempotency:refund:{current_user.org_id}:{payload.idempotency_key}"
     try:
-        redis_client = aioredis.from_url(settings.REDIS_URL)
+        redis_client = get_redis_client()
         cached_bytes = await redis_client.get(redis_key)
-        await redis_client.aclose()
         if cached_bytes:
             data = json.loads(cached_bytes.decode("utf-8") if isinstance(cached_bytes, bytes) else cached_bytes)
             return RefundResponse(
@@ -368,7 +367,7 @@ async def issue_refund(
 
     # Cache idempotency record in Redis for fast future replay
     try:
-        redis_client = aioredis.from_url(settings.REDIS_URL)
+        redis_client = get_redis_client()
         await redis_client.set(
             redis_key,
             json.dumps({
@@ -382,7 +381,6 @@ async def issue_refund(
             }),
             ex=86400,
         )
-        await redis_client.aclose()
     except Exception:
         pass
 

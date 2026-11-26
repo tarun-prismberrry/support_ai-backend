@@ -5,13 +5,13 @@ Implements CONTRACTS.md Section 3.C for container orchestration and uptime check
 
 from __future__ import annotations
 
-import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.redis import get_redis_client
 
 router = APIRouter(prefix="/health", tags=["Health"])
 settings = get_settings()
@@ -34,7 +34,7 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
             detail=f"Database unavailable: {exc}",
         ) from exc
 
-    redis_client = aioredis.from_url(settings.REDIS_URL)
+    redis_client = get_redis_client()
     try:
         pong = await redis_client.ping()
         if not pong:
@@ -44,7 +44,5 @@ async def readiness_probe(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Redis unavailable: {exc}",
         ) from exc
-    finally:
-        await redis_client.aclose()
 
     return {"status": "ready"}

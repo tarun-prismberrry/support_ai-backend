@@ -239,6 +239,7 @@ async def add_ticket_message(
         sender_type = "support_agent"
 
     message = TicketMessage(
+        org_id=current_user.org_id,
         ticket_id=ticket.id,
         sender_type=sender_type,
         sender_id=current_user.id,

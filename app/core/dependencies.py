@@ -27,6 +27,7 @@ class UserContext(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    user_id: uuid.UUID
     email: str
     full_name: str
     org_id: uuid.UUID
@@ -140,6 +141,7 @@ async def get_current_user(
 
     return UserContext(
         id=user.id,
+        user_id=user.id,
         email=user.email,
         full_name=user.full_name,
         org_id=user.org_id,
