@@ -4,7 +4,7 @@
 
 ## 📌 Latest Status (2026-11-26)
 * **Active Git Branch:** `main` (tracked with `origin/main`).
-* **Latest Git Commit:** `a36b875` (`feat(billing): implement invoices and HITL refund workflow with HMAC verification and idempotency`).
+* **Latest Git Commit:** `e34186a` (`fix: resolve 6 audited bugs, add shared redis pool, and upgrade seed data for cross-team testing`).
 * **Completed Milestones:**
   1. Relational schema design & contracts locked (v3.0).
   2. Core async database engine, config, and security modules (`app/core/`).
@@ -17,7 +17,8 @@
   9. Tickets & internal notes endpoints (`/tickets`, `/tickets/{id}/messages`, `/tickets/{id}/notes`, `/tickets/{id}/status`).
   10. Invoices & HITL refund workflow (`/invoices`, `/invoices/{id}`, `/invoices/{id}/approve-refund`, `/invoices/{id}/refund`).
   11. Seed Upgrade & Runtime Bug Fixes (`app/scripts/seed.py`, `app/schemas/ticket.py`, `app/core/dependencies.py`, `app/api/v1/tickets.py`).
-* **Current Immediate Task:** Start Docker containers, run the upgraded seeder in PostgreSQL, inspect counts, and commit. Then proceed to the Pytest Integration Test Suite (`tests/`).
+  12. Redis User Session Cache (Cache-Aside Pattern in `app/core/dependencies.py`, `app/core/config.py`).
+* **Current Immediate Task:** Verify Redis user session cache latency speedup with `test_user_cache.py`, commit milestone 12, then proceed to the Pytest Integration Test Suite (`tests/`).
 
 ---
 

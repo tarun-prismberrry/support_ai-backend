@@ -4,6 +4,7 @@ FastAPI Dependencies for Authentication, Tenant Context Injection, and Dynamic R
 
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Optional
 
@@ -14,9 +15,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import get_settings
 from app.core.database import get_db, set_db_tenant_context
+from app.core.redis import get_redis_client
 from app.core.security import decode_access_token
 from app.models.user import User
+
+settings = get_settings()
 
 
 class UserContext(BaseModel):
@@ -104,7 +109,24 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Query active user with preloaded role and customer profiles
+    # 1. Cache-Aside Check in Redis (<0.5ms fast path)
+    redis_key = f"cache:user:{user_uuid}"
+    try:
+        redis_client = get_redis_client()
+        cached_data = await redis_client.get(redis_key)
+        if cached_data:
+            user_data = json.loads(
+                cached_data.decode("utf-8") if isinstance(cached_data, bytes) else cached_data
+            )
+            user_context = UserContext.model_validate(user_data)
+            # Crucial: Apply PostgreSQL RLS tenant context for this request's DB transaction
+            await set_db_tenant_context(db, user_context.org_id)
+            return user_context
+    except Exception:
+        # Graceful degradation: If Redis is unavailable, fall back to DB lookup seamlessly
+        pass
+
+    # 2. Cache Miss: Query PostgreSQL with preloaded role and customer profiles
     stmt = (
         select(User)
         .options(selectinload(User.role), selectinload(User.customer))
@@ -139,7 +161,7 @@ async def get_current_user(
     permissions: list[str] = user.role.permissions or []
     customer_id = user.customer.id if user.customer else None
 
-    return UserContext(
+    user_context = UserContext(
         id=user.id,
         user_id=user.id,
         email=user.email,
@@ -150,6 +172,31 @@ async def get_current_user(
         permissions=permissions,
         authorized_kb_tiers=resolve_kb_tiers(permissions),
     )
+
+    # 3. Populate Redis Cache with TTL (Look-Aside write)
+    try:
+        redis_client = get_redis_client()
+        await redis_client.set(
+            redis_key,
+            user_context.model_dump_json(),
+            ex=settings.USER_CACHE_TTL_SECONDS,
+        )
+    except Exception:
+        pass
+
+    return user_context
+
+
+async def invalidate_user_cache(user_id: uuid.UUID | str) -> None:
+    """
+    Invalidates cached UserContext in Redis.
+    Must be called whenever user role, permissions, or active status change.
+    """
+    try:
+        redis_client = get_redis_client()
+        await redis_client.delete(f"cache:user:{user_id}")
+    except Exception:
+        pass
 
 
 def require_permission(required_permission: str):

@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     JWT_ISSUER: str = "support-ai-backend"
     JWT_AUDIENCE: str = "support-ai-services"
-    # Redis Configuration
+    # Redis Configuration & Caching
     REDIS_URL: str = "redis://localhost:6379/0"
+    USER_CACHE_TTL_SECONDS: int = 300  # 5-minute cache TTL for user sessions (Cache-Aside)
 
     # Pydantic v2 Settings Configuration
     model_config = SettingsConfigDict(
