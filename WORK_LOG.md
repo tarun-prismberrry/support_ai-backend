@@ -4,7 +4,7 @@
 
 ## 📌 Latest Status (2026-11-26)
 * **Active Git Branch:** `main` (tracked with `origin/main`).
-* **Latest Git Commit:** `e34186a` (`fix: resolve 6 audited bugs, add shared redis pool, and upgrade seed data for cross-team testing`).
+* **Latest Git Commit:** `03dca60` (`feat(auth): implement redis user session cache-aside pattern with 300s ttl and instant invalidation`).
 * **Completed Milestones:**
   1. Relational schema design & contracts locked (v3.0).
   2. Core async database engine, config, and security modules (`app/core/`).
@@ -18,11 +18,23 @@
   10. Invoices & HITL refund workflow (`/invoices`, `/invoices/{id}`, `/invoices/{id}/approve-refund`, `/invoices/{id}/refund`).
   11. Seed Upgrade & Runtime Bug Fixes (`app/scripts/seed.py`, `app/schemas/ticket.py`, `app/core/dependencies.py`, `app/api/v1/tickets.py`).
   12. Redis User Session Cache (Cache-Aside Pattern in `app/core/dependencies.py`, `app/core/config.py`).
-* **Current Immediate Task:** Verify Redis user session cache latency speedup with `test_user_cache.py`, commit milestone 12, then proceed to the Pytest Integration Test Suite (`tests/`).
+  13. Automated Pytest Integration Test Suite (`tests/conftest.py`, `tests/test_health.py`, `tests/test_auth.py`, `tests/test_tickets.py`, `tests/test_notes.py`, `tests/test_invoices.py`).
+* **Current Immediate Task:** Commit milestone 13 to git, then proceed to the PostgreSQL Row-Level Security (RLS) DDL migration.
 
 ---
 
 ## 📅 Session Log: 2026-11-26
+
+### Objective: Automated Pytest Integration Test Suite (`tests/`)
+* **Test Architecture & Scope:**
+  * `tests/conftest.py`: Async HTTP client (`AsyncClient` with `ASGITransport`), session-scoped event loop, Redis flush fixture, and deterministic persona headers (`alice_headers`, `bob_headers`, `charlie_headers`, `dave_headers`, `eve_headers`).
+  * `tests/test_health.py`: Liveness (`/health/live`) and readiness (`/health/ready`) probes verifying PostgreSQL + Redis connectivity.
+  * `tests/test_auth.py`: Login success, 401 on bad credentials, `/auth/me` persona resolution, and Redis user session cache-aside lifecycle (miss, hit, 300s TTL, and instant invalidation).
+  * `tests/test_tickets.py`: Customer sees own tickets, agent sees org tickets, cross-tenant isolation (404 on cross-org ticket), ticket creation, state machine transitions (`open` -> `in_progress`), and dialogue history.
+  * `tests/test_notes.py`: Internal staff whispers (agents read/write, customers strictly 403 Forbidden).
+  * `tests/test_invoices.py`: Invoices listing, cross-tenant invoice isolation, HITL refund requirement (> $100 requires HMAC approval token), end-to-end HITL approval and refund execution, and single-use idempotency replay.
+* **Verification:**
+  * **20 / 20 tests passing 100% green** in under 1 second.
 
 ### Objective: Bug Fixes & Industry-Grade Synthetic Seed Upgrade
 * **All 6 Codebase Review Issues Resolved:**

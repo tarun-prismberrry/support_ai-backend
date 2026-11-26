@@ -21,6 +21,7 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
+from app.core.redis import get_redis_client
 from app.core.security import hash_password
 from app.models.audit import AuditLog
 from app.models.billing import Invoice
@@ -106,6 +107,14 @@ async def seed_database() -> None:
         )
         await db.commit()
 
+        # Flush stale Redis keys so refreshed permissions take effect immediately
+        try:
+            redis_client = get_redis_client()
+            await redis_client.flushdb()
+            print("🧹 Flushed Redis session cache...")
+        except Exception:
+            pass
+
         # ---------------------------------------------------------------------
         # 2. Seed Organizations
         # ---------------------------------------------------------------------
@@ -123,7 +132,7 @@ async def seed_database() -> None:
         admin_perms = ["*"]
         agent_perms = [
             "ticket.read:org", "ticket.write:org", "ticket.status:update",
-            "ticket.note:read", "ticket.note:write",
+            "ticket.note:read", "ticket.note:write", "refund.issue",
             "kb.read:public", "kb.read:internal_staff",
         ]
         customer_perms = ["ticket.read:own", "ticket.write:own", "kb.read:public"]

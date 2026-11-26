@@ -27,11 +27,12 @@ settings = get_settings()
 
 # Canonical HTTP status -> CONTRACTS.md error code mapping
 STATUS_TO_ERROR_CODE: dict[int, str] = {
+    status.HTTP_400_BAD_REQUEST: "BAD_REQUEST",
     status.HTTP_401_UNAUTHORIZED: "UNAUTHORIZED",
     status.HTTP_403_FORBIDDEN: "FORBIDDEN",
     status.HTTP_404_NOT_FOUND: "NOT_FOUND",
     status.HTTP_409_CONFLICT: "CONFLICT",
-    status.HTTP_422_UNPROCESSABLE_ENTITY: "VALIDATION_ERROR",
+    status.HTTP_422_UNPROCESSABLE_CONTENT: "VALIDATION_ERROR",
     status.HTTP_503_SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
 }
 
@@ -68,14 +69,20 @@ def create_app() -> FastAPI:
         exc: StarletteHTTPException,
     ) -> JSONResponse:
         code = STATUS_TO_ERROR_CODE.get(exc.status_code, "INTERNAL_ERROR")
+        message = str(exc.detail)
+        details = None
+        if isinstance(exc.detail, dict):
+            code = exc.detail.get("code", code)
+            message = exc.detail.get("message", message)
+            details = exc.detail.get("details", None)
         return JSONResponse(
             status_code=exc.status_code,
             headers=exc.headers,
             content={
                 "error": {
                     "code": code,
-                    "message": str(exc.detail),
-                    "details": None,
+                    "message": message,
+                    "details": details,
                 }
             },
         )

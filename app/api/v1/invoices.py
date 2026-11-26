@@ -276,8 +276,11 @@ async def issue_refund(
     if payload.amount > Decimal("100.00"):
         if not payload.approval_token:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Refund amount exceeds $100.00 and requires an admin approval token",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "REQUIRES_APPROVAL",
+                    "message": f"Refund amount ${payload.amount} exceeds threshold $100.00 and requires an admin approval token",
+                },
             )
 
         parts = payload.approval_token.split(".")
