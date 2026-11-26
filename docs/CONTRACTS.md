@@ -131,7 +131,7 @@ CREATE TABLE knowledge_base_articles (
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     access_level VARCHAR(32) NOT NULL, -- 'public' | 'internal_staff' | 'admin_only'
-    embedding VECTOR(1536),            -- OpenAI text-embedding-3-small
+    embedding VECTOR(384),            -- all-MiniLM-L6-v2
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_kb_lookup ON knowledge_base_articles (org_id, access_level);

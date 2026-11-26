@@ -19,7 +19,8 @@
   11. Seed Upgrade & Runtime Bug Fixes (`app/scripts/seed.py`, `app/schemas/ticket.py`, `app/core/dependencies.py`, `app/api/v1/tickets.py`).
   12. Redis User Session Cache (Cache-Aside Pattern in `app/core/dependencies.py`, `app/core/config.py`).
   13. Automated Pytest Integration Test Suite (`tests/conftest.py`, `tests/test_health.py`, `tests/test_auth.py`, `tests/test_tickets.py`, `tests/test_notes.py`, `tests/test_invoices.py`).
-* **Current Immediate Task:** Commit milestone 13 to git, then proceed to the PostgreSQL Row-Level Security (RLS) DDL migration.
+  14. PostgreSQL Row-Level Security (RLS) DDL Migration (`migrations/versions/b71e33cfa5d2_enable_rls_tenant_policies.py`) & Verification Suite (`tests/test_rls.py`).
+* **Current Immediate Task:** Apply Alembic migration `b71e33cfa5d2`, run full pytest suite (including 4 new RLS tests = 24 tests total), and commit.
 
 ---
 
@@ -59,22 +60,35 @@
 
 ---
 
+## 📅 Session 7 — Milestone 13 & 14: Pytest Test Suite & PostgreSQL Row-Level Security (RLS)
+
+### ✅ What Got Done:
+* **Milestone 13: 20 Pytest Domain Integration Tests** (`tests/`):
+  * `test_health.py`: Liveness and readiness endpoints checking DB/Redis availability.
+  * `test_auth.py`: JWT login, claims, `/auth/me` persona inspection, and Redis session cache-aside validation.
+  * `test_tickets.py`: Tenant isolation, customer vs agent ticket access, state machine transitions, and multi-turn ticket dialogue history.
+  * `test_notes.py`: Staff-only internal notes vs customer 403 boundary enforcement.
+  * `test_invoices.py`: Cross-tenant invoice isolation, HITL refund escalation threshold ($100), and end-to-end refund workflow.
+* **Milestone 14: PostgreSQL Kernel-Level Row-Level Security (RLS)**:
+  * Synchronized RAG embedding vector dimension to **384** (`all-MiniLM-L6-v2`) across `CONTRACTS.md`, `app/models/rag.py`, initial migration, and `seed.py`.
+  * Generated and applied Alembic migration `b71e33cfa5d2` (`enable_rls_tenant_policies`):
+    * Enabled and forced RLS on 7 business tables (`customers`, `tickets`, `ticket_messages`, `ticket_notes`, `invoices`, `audit_logs`, `knowledge_base_articles`) and `roles`.
+    * Defined `tenant_isolation_policy` binding queries to `current_setting('app.current_org_id', true)::uuid`.
+    * Provisioned `app_user` with public schema table grants.
+  * Created `tests/test_rls.py` verifying raw database-level query interception without application WHERE clauses:
+    * Switching role to `app_user` to prove non-superuser RLS enforcement (as `postgres` superuser bypasses RLS by PostgreSQL design).
+    * Validated Org A isolation (953 tickets), Org B isolation (101 tickets), unauthenticated zero-row return, and cross-tenant `WITH CHECK` insert rejection.
+* **Full Test Suite Status**: 24/24 tests PASSED (100% green).
+
+---
+
 ## 🎯 Exact Next Steps
 
-1. **Start Docker Infrastructure (User Terminal):**
+1. **User Terminal: Commit Milestone 14:**
    ```bash
-   docker compose up -d
+   git add docs/CONTRACTS.md docker/init-db.sh migrations/ versions/ tests/ WORK_LOG.md
+   git commit -m "feat(db): enable postgresql row-level security policies with verified rls test suite"
    ```
-2. **Execute Upgraded Seeder & Verify Live DB:**
-   ```bash
-   .venv/bin/python -m app.scripts.seed
-   ```
-3. **Commit Bug Fixes, Upgraded Seeder & Work Log:**
-   ```bash
-   git add app/core/dependencies.py app/schemas/ticket.py app/api/v1/tickets.py app/scripts/ app/__init__.py app/core/__init__.py app/api/__init__.py app/api/v1/__init__.py app/schemas/__init__.py WORK_LOG.md
-   git commit -m "fix: resolve 3 runtime bugs, add package markers, and upgrade seed data for cross-team testing"
-   ```
-4. **Implement Pytest Integration Test Suite (`tests/`):**
-   * Multi-tenant negative isolation matrix (CONTRACTS.md Section 8).
-   * HITL refund token approval, tampering rejection, and single-use verification.
-   * Customer vs staff RBAC boundary tests.
+2. **Milestone 15: Microservice Handoff Package & Production Containerization:**
+   * Multi-stage production `Dockerfile` for FastAPI + Uvicorn.
+   * Integration handoff docs and verification runbooks for Akshit (RAG), Pulkit (MCP), and Shashank (LangGraph).
