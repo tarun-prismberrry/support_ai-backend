@@ -36,30 +36,25 @@ if [ "$ENVIRONMENT" != "production" ]; then
     echo "Checking if database seeding is required..."
     python - << 'EOF'
 import asyncio
-import sys
 from sqlalchemy import text
 from app.core.database import async_session_factory
+from app.scripts.seed import seed_database
 
-async def check():
+async def check_and_seed():
     try:
         async with async_session_factory() as db:
             res = await db.execute(text("SELECT count(*) FROM users"))
             count = res.scalar()
             if count == 0:
                 print("Database is empty (0 users found). Auto-seeding initial test data...")
-                sys.exit(10)
+                await seed_database()
             else:
                 print(f"Database already populated ({count} users found). Skipping seed.")
-                sys.exit(0)
     except Exception as e:
-        print(f"Error checking users count: {e}. Skipping auto-seed.")
-        sys.exit(0)
+        print(f"Error during auto-seed check: {e}")
 
-asyncio.run(check())
+asyncio.run(check_and_seed())
 EOF
-    if [ $? -eq 10 ]; then
-        python -m app.scripts.seed
-    fi
 fi
 
 echo "Starting application service..."
