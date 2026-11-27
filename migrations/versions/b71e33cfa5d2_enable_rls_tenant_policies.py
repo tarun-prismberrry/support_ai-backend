@@ -34,6 +34,7 @@ def upgrade() -> None:
     """
     # 0. Ensure non-superuser app_user exists and has table privileges
     # (Superusers bypass RLS by design in PostgreSQL; app_user enforces strict RLS)
+    # Note: asyncpg requires single statement per op.execute()
     op.execute("""
         DO $$
         BEGIN
@@ -42,12 +43,12 @@ def upgrade() -> None:
             END IF;
         END
         $$;
-        GRANT USAGE ON SCHEMA public TO app_user;
-        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;
-        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO app_user;
-        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO app_user;
     """)
+    op.execute("GRANT USAGE ON SCHEMA public TO app_user;")
+    op.execute("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO app_user;")
+    op.execute("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO app_user;")
+    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO app_user;")
+    op.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO app_user;")
 
     # 1. Strict Tenant Isolation on Business Domain Tables
     for table in DOMAIN_TENANT_TABLES:
